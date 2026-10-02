@@ -233,5 +233,125 @@ class InteractionTests(unittest.TestCase):
         self.assertEqual(result.stderr, "")
 
 
+# Repository B - Tester: Check real CSV failures through the command-line program.
+class TesterCsvTests(unittest.TestCase):
+    def test_truncated_rows_name_missing_columns(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sample.csv"
+            for row, columns in (("Ember,Fire,1,2", ("Speed",)),
+                                 ("Ember,Fire,1", ("Defense", "Speed")),
+                                 ("Ember", ("Type 1", "Attack", "Defense", "Speed"))):
+                with self.subTest(row=row):
+                    path.write_text("Name,Type 1,Attack,Defense,Speed\n" + row,
+                                    encoding="utf-8")
+                    with self.assertRaises(ValueError) as caught:
+                        main.load_pokemon(path)
+                    self.assertIn("row 2", str(caught.exception))
+                    for column in columns:
+                        self.assertIn(column, str(caught.exception))
+
+    def test_actual_dataset_errors_exit_one_without_prompt_or_traceback(self):
+        header = b"Name,Type 1,Attack,Defense,Speed\n"
+        cases = {
+            "missing": (None, "Could not load"),
+            "empty": (b"", "No Pokémon"),
+            "header only": (header, "No Pokémon"),
+            "missing column": (b"Name,Type 1,Attack,Defense\n", "Speed"),
+            "encoding": (b"\xff", "Could not load"),
+            "malformed": (header + b'"unclosed,Fire,1,2,3', "Could not load"),
+            "short row": (header + b"Ember,Fire,1,2", "Speed"),
+            "negative": (header + b"Ember,Fire,-1,2,3", "row 2: Attack"),
+            "missing name": (header + b",Fire,1,2,3", "row 2: missing Name"),
+            "extra field": (header + b"Ember,Fire,1,2,3,4", "row 2"),
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "main.py"
+            script.write_bytes(Path(main.__file__).read_bytes())
+            (root / "data").mkdir()
+            dataset = root / "data/pokemon.csv"
+            for label, (content, message) in cases.items():
+                with self.subTest(case=label):
+                    if content is not None:
+                        dataset.write_bytes(content)
+                    result = subprocess.run([sys.executable, str(script)],
+                                            input="fire\n", capture_output=True,
+                                            text=True, timeout=10)
+                    self.assertEqual(result.returncode, 1, result.stdout)
+                    self.assertIn(message, result.stdout)
+                    self.assertNotIn("Enter a primary", result.stdout)
+                    self.assertEqual(result.stderr, "")
+                    if dataset.exists():
+                        dataset.unlink()
+
+
+# Repository B - Tester: Independently calculate expected output from the shipped CSV.
+class TesterRealDataTests(unittest.TestCase):
+    def test_all_primary_types_against_independent_expected_output(self):
+        root = Path(main.__file__).resolve().parent
+        with (root / "data/pokemon.csv").open(encoding="utf-8", newline="") as file:
+            rows = list(csv.DictReader(file))
+        types = sorted({row["Type 1"].strip().lower() for row in rows})
+        with tempfile.TemporaryDirectory() as directory:
+            for primary in types:
+                with self.subTest(primary=primary):
+                    matches = [row for row in rows
+                               if row["Type 1"].strip().lower() == primary]
+                    expected = sorted(matches, key=lambda row: (
+                        -sum(int(row[c]) for c in ("Attack", "Defense", "Speed")),
+                        row["Name"].strip().lower()))[:5]
+                    result = subprocess.run([sys.executable, str(root / "main.py")],
+                                            cwd=directory, input="  " + primary.upper() + "  \n",
+                                            capture_output=True, text=True, timeout=10)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stderr, "")
+                    actual = result.stdout.split("Recommendations: ", 1)[1].splitlines()
+                    lines = [str(len(expected))]
+                    for index, row in enumerate(expected, 1):
+                        score = sum(int(row[c]) for c in ("Attack", "Defense", "Speed"))
+                        lines.append(f"{index}. {row['Name'].strip()} ({row['Type 1'].strip()}) | "
+                                     f"Attack: {int(row['Attack'])} | Defense: {int(row['Defense'])} | "
+                                     f"Speed: {int(row['Speed'])} | Score: {score}")
+                    self.assertEqual(actual, lines)
+
+    def test_real_closed_input_and_invalid_then_valid(self):
+        script = str(Path(main.__file__).resolve())
+        for user_input, retries, ending in (("", 0, "Goodbye!"),
+                                            ("\n  \npizza\n WaTeR \n", 3, "Recommendations: 5"),
+                                            ("pizza\n", 1, "Goodbye!")):
+            with self.subTest(user_input=user_input):
+                result = subprocess.run([sys.executable, script], input=user_input,
+                                        capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 0)
+                self.assertEqual(result.stderr, "")
+                self.assertEqual(result.stdout.count("Please enter an available"), retries)
+                self.assertIn(ending, result.stdout)
+
+
+# Repository B - Tester: Verify real-dataset ranking and tie behavior.
+class TesterWaterRankingTests(unittest.TestCase):
+    def test_real_water_ranking_and_ties(self):
+        # These expectations deliberately pin the bundled dataset. Intentional
+        # data changes may require reviewing and updating this regression test.
+        csv_path = Path(main.__file__).resolve().parent / "data/pokemon.csv"
+        pokemon = main.load_pokemon(csv_path)
+        recommendations = main.recommend_pokemon(pokemon, " WaTeR ")
+
+        self.assertEqual(len(recommendations), 5)
+        names = [entry["Name"] for entry in recommendations]
+        self.assertEqual(names, [
+            "Cloyster",
+            "GyaradosMega Gyarados",
+            "KyogrePrimal Kyogre",
+            "SwampertMega Swampert",
+            "Kingler",
+        ])
+        self.assertEqual([main.calculate_score(entry)
+                          for entry in recommendations[:2]], [345, 345])
+        self.assertLess(names[0].lower(), names[1].lower())
+        self.assertTrue(all(entry["Type 1"] == "Water"
+                            for entry in recommendations))
+
+
 if __name__ == "__main__":
     unittest.main()

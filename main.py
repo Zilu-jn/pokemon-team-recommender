@@ -24,8 +24,14 @@ def load_pokemon(csv_path):
 
         for row in reader:
             row_number = reader.line_num
-            if None in row or any(value is None for value in row.values()):
+            if None in row:
                 raise ValueError(f"CSV row {row_number}: incorrect number of fields.")
+            # Repository B - Tester: Name absent columns in truncated CSV rows.
+            missing_fields = [column for column, value in row.items() if value is None]
+            if missing_fields:
+                raise ValueError(
+                    f"CSV row {row_number}: missing fields: " + ", ".join(missing_fields)
+                )
             record = {}
             for column in ("Name", "Type 1"):
                 value = row[column].strip()

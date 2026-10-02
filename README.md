@@ -54,8 +54,10 @@ python3 -m unittest discover -s tests -v
 python3 -m py_compile main.py tests/test_main.py
 ```
 
-Tests use invented records, temporary CSV files, and simulated user input. One
-integration test also checks the included dataset from a different directory.
+Tests use invented records, temporary CSV files, and simulated user input.
+Integration tests check every primary type in the included dataset from a
+different directory, real CSV failures, closed input, and invalid-input retries.
+Comments beginning with `# Repository B - Tester` identify the independent tests.
 Importing `main` does not launch the program. Syntax checking does not run a prompt.
 
 ## Docker
