@@ -99,6 +99,36 @@ needed. Rebuild after changing the code, tests, or dataset.
 If Docker cannot connect to its engine, start Docker Desktop and retry. Run the
 interactive command in a normal terminal that supports `-it`.
 
+## Manual Smoke Test
+
+I manually tested the project locally before beginning the Tester stage.
+
+I ran:
+
+```bash
+python3 main.py
+```
+
+I first entered `pizza`, which was correctly rejected. I then entered
+` Water ` with surrounding spaces. The program accepted the normalized input,
+displayed five Water recommendations with statistics and scores, and exited
+without a traceback.
+
+![Local manual smoke test](images/local_smoke_test.png)
+
+I also rebuilt and manually tested the Docker image:
+
+```bash
+docker build -t pokemon-team-recommender .
+docker run --rm -it pokemon-team-recommender
+```
+
+Inside the container, I entered `wrong`, which was rejected, followed by
+`Fire`. The container displayed five Fire recommendations and exited
+successfully.
+
+![Docker manual smoke test](images/docker_smoke_test.png)
+
 ## Implementation guide
 
 Comments beginning with `# Repository B - Builder` mark CSV validation, type
