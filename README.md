@@ -136,3 +136,60 @@ successfully.
 Comments beginning with `# Repository B - Builder` mark CSV validation, type
 normalization, ranking, output, file paths, import safety, tests, and container
 setup. All application functions remain in `main.py` to keep the project small.
+
+## AI-Assisted Workflow and Reflection
+
+### Selected Option and Project Purpose
+
+I selected Option 3 and created a Pokémon Team Recommender in a separate
+Repository B. The program asks for a primary Pokémon type, validates the input,
+and recommends up to five Pokémon ranked by the sum of Attack, Defense, and
+Speed. The project uses only the Python standard library and can run locally or
+inside Docker.
+
+### Architect Contribution
+
+The Architect designed the project structure, program functions, ranking rules,
+input and dataset error handling, tests, Docker setup, acceptance criteria, and
+project risks. The final design was saved in `docs/plan.md`.
+
+### Builder Contribution
+
+The Builder implemented `main.py`, the initial automated tests, Docker support,
+dataset documentation, and the README instructions. The implementation includes
+comments beginning with `# Repository B - Builder` so the Builder work is easy
+to identify.
+
+### Tester Contribution
+
+The Tester independently reviewed the implementation against the plan. It found
+that truncated CSV rows should identify their missing columns more clearly. That
+issue was corrected, and independent tests were added for CSV failures, all
+primary Pokémon types, invalid and closed input, real-data ranking, and
+alphabetical tie behavior. The final local test suite contains 30 passing tests.
+
+### Recommendation I Accepted
+
+I accepted the recommendation to keep the ranking method simple and
+beginner-friendly: add Attack, Defense, and Speed, rank by the total score, and
+use the Pokémon name as the alphabetical tie-breaker. This rule is transparent,
+easy to test, and appropriate for the assignment.
+
+### Recommendation I Changed
+
+The first Architect response did not include the required containerization
+details. I requested a revision that added a Dockerfile, `.dockerignore`, Docker
+build and run commands, container verification, and container-related risks. I
+used the revised plan rather than accepting the incomplete first version.
+
+### Independent Verification
+
+Before beginning the Tester stage, I manually ran the program locally and in
+Docker. I tested invalid input followed by valid Water and Fire input and
+confirmed that each run returned five recommendations without a traceback.
+After applying the Tester changes, I independently ran the complete test suite
+and Python syntax check. All 30 tests passed. The Tester also verified the test
+suite inside the Docker image.
+
+The complete Architect, Builder, and Tester conversations are stored separately
+in `docs/transcripts/`.
